@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "caterpillar"
+version = "0.2.0"
+description = "The Caterpillar's mushroom, for Wonderland's size-management service."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "Wonderland Engineering", email = "eng@wonderland.example" }]
+
+[tool.setuptools.packages.find]
+where = ["src"]

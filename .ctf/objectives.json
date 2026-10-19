@@ -1,0 +1,19 @@
+{
+  "objectives": [
+    {
+      "key": "caterpillar",
+      "title": "Caterpillar",
+      "prompt": "\"Who are YOU?\" said the Caterpillar. Wonderland runs CI on Jenkins, building the public Wonderland/caterpillar repository (hosted on Gitea). A test pipeline builds pull requests — including pull requests opened from forks — and a write-scoped gitea_token is exposed to every build on the controller. You only have a plain account, with no write access to the repository. Fork it, poison the Jenkinsfile to dump the environment and open a pull request; read the write token from the test build console. Then re-clone the original repository with that token, poison the Jenkinsfile to bind the flag2 credential (which only the prod pipeline can read) and push to main. Read the prod build's console, recover the value and submit the flag.",
+      "check": { "evidence": "SECRET", "format": "%s" },
+      "dev": "cat-dev-flag-not-a-real-secret-0000",
+      "capabilities": [
+        "ppe-public-fork-jenkins"
+      ],
+      "hints": [
+        "You have no write access, but the repository is public: fork it, change the Jenkinsfile in your fork to run `sh 'env'`, and open a pull request into main. The wonderland-caterpillar-test pipeline builds pull-request code — including from forks — so it runs your Jenkinsfile and prints its environment, where gitea_token (a write-scoped credential) is exposed.",
+        "The leaked gitea_token grants write access. Re-clone the original repository with it (git clone http://$gitea_token@gitea:3000/Wonderland/caterpillar.git) and push a poisoned Jenkinsfile to main. Only the wonderland-caterpillar-prod pipeline (which builds main) can bind the flag2 credential — the test pipeline cannot.",
+        "Bind the flag with withCredentials([string(credentialsId: 'flag2', variable: 'flag2')]). Jenkins masks a bound secret's raw value and its plain base64 in the console, so transform it the masker does not precompute — reverse it first, `echo $flag2 | rev | base64` — then undo that (base64 -d, then reverse) to recover the flag."
+      ]
+    }
+  ]
+}

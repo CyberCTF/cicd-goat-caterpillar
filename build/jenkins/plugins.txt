@@ -1,0 +1,15 @@
+# Jenkins plugins for the caterpillar lab. jenkins-plugin-cli resolves compatible versions for the
+# pinned controller. Just enough for: config-as-code, a Job DSL seed job, git-backed multibranch
+# pipelines that poll Gitea and discover pull-request head refs (the git plugin's "discover other
+# refs" trait), folder-scoped credentials (so only the prod pipeline can bind flag2), and the
+# string-credential binding the poisoned prod pipeline abuses.
+configuration-as-code
+job-dsl
+git
+workflow-aggregator
+workflow-multibranch
+cloudbees-folder
+credentials
+credentials-binding
+plain-credentials
+ws-cleanup

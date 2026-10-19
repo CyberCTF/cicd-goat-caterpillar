@@ -1,0 +1,40 @@
+// caterpillar CI pipeline (declarative). Lint + unit tests for the caterpillar package.
+// Wonderland's Jenkins builds this on every pull request (the test pipeline) and on main (the prod
+// pipeline). The pipeline itself holds no secrets: the write-scoped gitea_token is a controller-wide
+// environment variable, and flag2 is a credential only the prod pipeline's folder can bind.
+pipeline {
+    agent any
+
+    environment {
+        PACKAGE = 'caterpillar'
+    }
+
+    stages {
+        stage('build') {
+            steps {
+                sh '''
+                    python3 -m venv venv || true
+                    echo "requirements installed for ${PACKAGE}"
+                '''
+            }
+        }
+
+        stage('lint') {
+            steps {
+                sh 'echo "lint ${PACKAGE}: ok"'
+            }
+        }
+
+        stage('test') {
+            steps {
+                sh 'echo "pytest ${PACKAGE}: ok"'
+            }
+        }
+    }
+
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}

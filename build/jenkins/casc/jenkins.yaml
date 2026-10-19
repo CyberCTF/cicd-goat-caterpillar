@@ -1,0 +1,52 @@
+# Jenkins Configuration-as-Code for Wonderland's controller.
+#
+# The misconfiguration (CICD-SEC-4, public / fork-based PPE): the write-scoped `gitea_token` is a
+# controller-wide GLOBAL environment variable, so it is exposed to EVERY build — including the test
+# pipeline that builds untrusted pull-request code from forks. The flag itself is NOT here: `flag2` is
+# a credential scoped to the `caterpillar-release` folder, loaded at boot by an init-groovy hook from
+# a root-only file, so only the prod pipeline can bind it. The read-only `gitea-jenkins` credential is
+# what Jenkins uses to poll the repositories.
+jenkins:
+  systemMessage: "Wonderland CI — builds caterpillar: a test pipeline on pull requests, a prod pipeline on main."
+  numExecutors: 2
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "admin"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  # The leaked secret: a write-scoped Gitea push credential, wrongly exposed to every build as an
+  # environment variable. The attacker's poisoned fork pipeline dumps the environment and reads it.
+  # (`hatter:<password>` — the CI robot's basic-auth push credential; the password matches the write
+  # robot the Gitea seed creates. It is infrastructure, not the per-player flag.)
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: "gitea_token"
+            value: "hatter:TeaParty-3PE-pw"
+
+security:
+  globalJobDslSecurityConfiguration:
+    useScriptSecurity: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              id: "gitea-jenkins"
+              scope: GLOBAL
+              username: "jenkins"
+              password: "jenkins"
+              description: "Gitea read access for polling repositories"
+
+unclassified:
+  location:
+    url: "http://jenkins:8080/"
+
+jobs:
+  - file: /usr/share/jenkins/casc/jobdsl/caterpillar.groovy

@@ -1,0 +1,13 @@
+{
+  "project_name": "cyberlabs-cicd-goat-caterpillar",
+  "slug": "cicd-goat-caterpillar",
+  "title": "Caterpillar: public fork-based poisoned pipeline execution",
+  "description": "A Jenkins controller builds Wonderland's public caterpillar repository (hosted on Gitea). A test pipeline builds pull requests, including those opened from forks, and a write-scoped Gitea token is exposed to every build on the controller. An attacker with only a plain account forks the repository, poisons the Jenkinsfile to dump the environment and opens a pull request; the test pipeline runs the untrusted fork code and leaks the write token. With it the attacker escalates — re-clones with write access and poisons main, where the prod pipeline binds and exfiltrates the flag2 credential (OWASP CICD-SEC-4, Public / fork-based Poisoned Pipeline Execution, 3PE). Reproduces the \"Caterpillar\" challenge from CI/CD Goat.",
+  "category": "cicd",
+  "difficulty": 3,
+  "evidence_kind": "SECRET",
+  "capabilities": [
+    "ppe-public-fork-jenkins"
+  ],
+  "question": "Perform a public, fork-based PPE (3PE) attack against the Wonderland/caterpillar pipeline: leak the write-scoped token from a fork pull request, escalate, and exfiltrate the flag2 credential from the Jenkins credential store."
+}

@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://www.isoloom.com/schema/v1.json
+# Caterpillar (CI/CD Goat, CICD-SEC-4 Poisoned Pipeline Execution): a live, two-machine CI/CD lab
+# reproducing PUBLIC / fork-based PPE (3PE). Wonderland runs CI on a Jenkins controller that builds
+# the PUBLIC Wonderland/caterpillar repository (hosted on Gitea). A *test* pipeline builds pull
+# requests — including those opened from forks — and a write-scoped Gitea credential (`gitea_token`)
+# is wrongly exposed to every build on the controller. An attacker who only has a plain account forks
+# the repo, poisons the Jenkinsfile in the fork to dump the environment, and opens a pull request; the
+# test pipeline runs the attacker's untrusted code and prints the write token. With that token the
+# attacker escalates — re-clones the original repo with write access, poisons it again to bind the
+# `flag2` credential (which only the *prod* pipeline can read), and pushes to main, where the prod
+# pipeline exfiltrates the flag. See https://www.isoloom.com.
+version: 1
+name: cicd-goat-caterpillar
+
+networks:
+  lab: { cidr: 10.39.0.0/24 }
+
+# The per-player flag, issued by CyberCTF and handed to the lab by the launcher as a FILE (never an
+# environment value, so it never shows in `docker inspect`, an image layer or a generated file). The
+# Jenkins entrypoint stages it into a root-only directory, and an init-groovy hook loads it into the
+# `flag2` credential — scoped to the PROD folder only — so the credential resolves at boot without the
+# flag ever being an image layer, a spec value or a process environment variable. Optional: an offline
+# start (local, CI) leaves it empty and the lab loads its inert development placeholder instead, so the
+# lab still comes up and is solvable offline.
+#   CTF_FLAG_CATERPILLAR  objective `caterpillar`  (SECRET: Wonderland's flag2 release credential)
+inputs:
+  CTF_FLAG_CATERPILLAR:
+    description: the caterpillar flag, loaded into the Jenkins credential store as flag2 (PROD folder)
+
+machines:
+  # Wonderland's git host: Gitea, holding the PUBLIC Wonderland/caterpillar repository. The setup job
+  # provisions the org, a plain attacker account (cheshire — no write access to the repo, only able to
+  # fork it and open pull requests), the write-capable CI robot whose push credential leaks
+  # (`hatter`), and the Jenkins poller (jenkins, read), then pushes the sample project with its
+  # Jenkinsfile. No `publish` number: `publish: true` asks the runner for a free host port it picks at
+  # `up` time (dynamic), so two labs never collide.
+  gitea:
+    app:
+      build: build/gitea
+    networks: { lab: 12 }
+    resources: { cpus: 1, memory_mb: 1024 }
+    volumes: { data: /data }
+    ports:
+      web: { port: 3000, protocol: http, publish: true }
+    setup: [build/gitea/seed.sh]
+
+  # Wonderland's Jenkins controller: two git-backed multibranch pipelines, rescanned every minute (an
+  # SCM poll — no inbound webhook). `caterpillar-pr/wonderland-caterpillar-test` discovers pull-request
+  # head refs (refs/pull/*/head, which Gitea publishes for fork PRs too) and so builds untrusted fork
+  # code; the write-scoped `gitea_token` is a GLOBAL environment variable, exposed to it. The flag is
+  # NOT here: it is loaded at boot from a root-only file into the `flag2` credential, which is scoped
+  # to the `caterpillar-release` folder — only `caterpillar-release/wonderland-caterpillar-prod` (which
+  # builds main) can bind it. Runs as root so the entrypoint/init hook can read the mounted secret.
+  jenkins:
+    app:
+      build: build/jenkins
+    networks: { lab: 10 }
+    resources: { cpus: 2, memory_mb: 2048 }
+    ports:
+      web: { port: 8080, protocol: http, publish: true }
+    files:
+      - { path: /run/lab/secrets/flag2, input: CTF_FLAG_CATERPILLAR }
+
+# From the player's side, on every target: reachability checks that both services answer, and the
+# intended path as a solver that runs inside the Jenkins controller — it performs Public-PPE (3PE)
+# end to end (fork the repo, poison the Jenkinsfile to dump the env, open a PR, read the write token
+# from the test build console, re-clone with the token, poison main to bind flag2, read the prod build
+# console) and proves flag2 was exfiltrated, without ever printing it. Jenkins is slow to boot and the
+# attack needs two scans and two builds, so the waits are generous.
+checks:
+  - name: the Gitea git host answers
+    http: http://gitea:3000/
+    wait: 3m
+  - name: the Jenkins controller answers
+    http: http://jenkins:8080/login
+    wait: 5m
+  - name: flag2 is exfiltrated via public fork-based poisoned pipeline execution
+    from: jenkins
+    exec: bash /usr/local/bin/cat-solve
+    wait: 12m
+
+# Shown when the lab is up.
+message: |
+  Wonderland runs CI on **Jenkins**, building the **public Wonderland/caterpillar** repository hosted
+  on **Gitea**. A *test* pipeline builds every pull request — **including pull requests opened from a
+  fork** — and runs the branch's own `Jenkinsfile`. You only have a plain account: you cannot push to
+  Wonderland's repository, but you can fork it and open a pull request.
+
+  - Gitea:   {{ machines.gitea.ports.web.url }}   (sign in as `cheshire` / `cheshire`)
+  - Jenkins: {{ machines.jenkins.ports.web.url }} (sign in as `admin` / `admin` to read build consoles)
+
+  **Stage 1 — public fork PPE.** Fork `Wonderland/caterpillar`, change its `Jenkinsfile` to dump the
+  build environment, and open a pull request back into `main`:
+
+  ```
+  stage('build') { steps { sh 'env' } }
+  ```
+
+  The `wonderland-caterpillar-test` pipeline builds your pull request and prints its environment —
+  where a **write-scoped** `gitea_token` is wrongly exposed. Read it from the build console.
+
+  **Stage 2 — escalate.** Re-clone the original repository with that token (`http://$gitea_token@...`),
+  change the `Jenkinsfile` to bind the `flag2` credential and push to `main`. Only the
+  `wonderland-caterpillar-prod` pipeline can read `flag2`. Jenkins masks a bound secret's raw value
+  *and* its plain base64, so transform it first, e.g. `sh 'echo $flag2 | rev | base64'`, then read the
+  prod build's console and undo the transform.
