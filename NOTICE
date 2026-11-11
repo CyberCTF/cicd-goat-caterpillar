@@ -1,0 +1,11 @@
+CI/CD Goat: Caterpillar (CyberCTF lab)
+
+This lab reproduces the "Caterpillar" challenge of CI/CD Goat, a deliberately vulnerable CI/CD
+environment created by Cider Security (now part of Palo Alto Networks).
+
+  Source:  https://github.com/cider-security-research/cicd-goat
+  Release: 1.2.7 (commit 0ed10925f3983857cf219b2ac1c327b861fcccca)
+  Licence: Apache License, Version 2.0 (see LICENSE, copied verbatim from that release)
+
+The upstream repository has no NOTICE file of its own. See UPSTREAM.md for what this lab takes
+from CI/CD Goat and what it changes.
